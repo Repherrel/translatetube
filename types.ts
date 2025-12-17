@@ -19,3 +19,5 @@ export interface User {
   email: string;
   picture: string;
 }
+
+export type SearchStatus = 'idle' | 'pending' | 'success' | 'error';
