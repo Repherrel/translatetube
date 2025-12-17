@@ -3,7 +3,7 @@ import Header from './components/Header';
 import VideoCard from './components/VideoCard';
 import Loader from './components/Loader';
 import MonetizationModal from './components/MonetizationModal';
-import { Video, GeminiSearchResponse, User } from './types';
+import { Video, GeminiSearchResponse, User, SearchStatus } from './types';
 import { translateAndSearch } from './services/geminiService';
 import * as authService from './services/authService';
 import { FREE_SEARCH_LIMIT } from './constants';
@@ -13,7 +13,7 @@ import SearchExamples from './components/SearchExamples';
 const App: React.FC = () => {
   const [query, setQuery] = useState<string>('');
   const [videos, setVideos] = useState<Video[]>([]);
-  const [loading, setLoading] = useState<boolean>(false);
+  const [searchStatus, setSearchStatus] = useState<SearchStatus>('idle');
   const [error, setError] = useState<string | null>(null);
   const [searchCount, setSearchCount] = useState<number>(0);
   const [isModalOpen, setIsModalOpen] = useState<boolean>(false);
@@ -40,7 +40,7 @@ const App: React.FC = () => {
       return;
     }
 
-    setLoading(true);
+    setSearchStatus('pending');
     setError(null);
     setSearchInfo(null);
     setQuery(searchQuery);
@@ -49,18 +49,18 @@ const App: React.FC = () => {
       const result: GeminiSearchResponse = await translateAndSearch(searchQuery);
       setVideos(result.videos);
       setSearchInfo({ detected: result.detectedLanguage, translated: result.translatedQuery });
+      setSearchStatus('success');
       if (!isSubscribed) {
           setSearchCount(prevCount => prevCount + 1);
       }
     } catch (err: unknown) {
+      setSearchStatus('error');
       if (err instanceof Error) {
         setError(err.message);
       } else {
         setError("An unknown error occurred.");
       }
       setVideos([]);
-    } finally {
-      setLoading(false);
     }
   }, [searchCount, isSubscribed]);
 
@@ -82,7 +82,7 @@ const App: React.FC = () => {
     setVideos([]);
     setError(null);
     setSearchInfo(null);
-    setLoading(false);
+    setSearchStatus('idle');
   };
 
   const WelcomeScreen = () => (
@@ -111,7 +111,7 @@ const App: React.FC = () => {
         query={query}
         setQuery={setQuery}
         onSearch={handleSearch} 
-        loading={loading} 
+        loading={searchStatus === 'pending'} 
         searchCount={searchCount}
         user={user}
         isSubscribed={isSubscribed}
@@ -120,7 +120,7 @@ const App: React.FC = () => {
         onGoHome={handleGoHome}
       />
       <main className="container mx-auto p-4 sm:p-6 lg:p-8">
-        {loading ? (
+        {searchStatus === 'pending' ? (
           <Loader message="Translating and finding videos..." />
         ) : (
           <>
@@ -139,9 +139,9 @@ const App: React.FC = () => {
                     <VideoCard key={video.id} video={video} />
                 ))}
                 </div>
-            ) : !error && !loading && searchInfo ? (
+            ) : (searchStatus === 'error' || (searchStatus === 'success' && searchInfo)) ? (
                 <NoResults />
-            ) : !error && !loading && !searchInfo ? (
+            ) : searchStatus === 'idle' ? (
                 <WelcomeScreen />
             ) : null}
           </>
